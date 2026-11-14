@@ -4,6 +4,11 @@ from .base import *
 DEBUG = False
 
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', '').split(',') if host.strip()]
+render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if render_host and render_host not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(render_host)
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['.onrender.com', 'localhost', '127.0.0.1']
 
 # Security headers for production
 SECURE_BROWSER_XSS_FILTER = True
