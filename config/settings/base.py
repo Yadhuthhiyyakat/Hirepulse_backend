@@ -336,30 +336,39 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
+def _clean_origin(orig: str) -> str:
+    o = orig.strip().strip("'\"").rstrip('/')
+    if o and not o.startswith('http://') and not o.startswith('https://'):
+        o = f"https://{o}"
+    return o
+
 CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('true', '1')
-CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get(
-        'CORS_ALLOWED_ORIGINS',
-        'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://localhost:80'
-    ).split(',')
-    if origin.strip()
+raw_cors = os.environ.get(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://localhost:80'
+)
+CORS_ALLOWED_ORIGINS = [_clean_origin(o) for o in raw_cors.split(',') if o.strip()]
+
+# Automatically permit all Vercel preview & production deployments and Render subdomains:
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+    r"^https://.*\.onrender\.com$",
 ]
+
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF Trusted Origins (Required for Django 4+ on HTTPS domains like Render)
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get(
-        'CSRF_TRUSTED_ORIGINS',
-        'http://localhost:5173,http://127.0.0.1:5173,https://*.onrender.com'
-    ).split(',')
-    if origin.strip()
-]
-if render_host:
+# CSRF Trusted Origins (Required for Django 4+ on HTTPS domains like Vercel and Render)
+raw_csrf = os.environ.get(
+    'CSRF_TRUSTED_ORIGINS',
+    'http://localhost:5173,http://127.0.0.1:5173,https://*.vercel.app,https://*.onrender.com'
+)
+CSRF_TRUSTED_ORIGINS = [_clean_origin(o) for o in raw_csrf.split(',') if o.strip()]
+for default_trusted in ['https://*.vercel.app', 'https://*.onrender.com', 'http://localhost:5173', 'http://127.0.0.1:5173']:
+    if default_trusted not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(default_trusted)
+
+if render_host and f"https://{render_host}" not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append(f"https://{render_host}")
-if 'https://*.onrender.com' not in CSRF_TRUSTED_ORIGINS:
-    CSRF_TRUSTED_ORIGINS.append('https://*.onrender.com')
 
 # JWT HttpOnly Cookie Settings (Protected from JavaScript access)
 AUTH_COOKIE_REFRESH = 'refresh_token'
